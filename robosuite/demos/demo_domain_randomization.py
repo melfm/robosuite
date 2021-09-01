@@ -45,7 +45,7 @@ if __name__ == "__main__":
         ignore_done=True,
         use_camera_obs=False,
         camera_names="agentview",
-        render_camera="frontview",
+        render_camera="nearfrontview",
         control_freq=20,
         hard_reset=False,   # TODO: Not setting this flag to False brings up a segfault on macos or glfw error on linux
     )
