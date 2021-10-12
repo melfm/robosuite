@@ -12,6 +12,7 @@ import json
 from matplotlib import cm
 c = plt.cm.jet(np.linspace(0,1,8))
 """
+Max linear velocity of the real jaco is 20cm/s
 # JRH summary of Ziegler-Nichols method
 1) set damping_ratio and kp to zero
 2) increase kp slowly until you get "overshoot", (positive ERR on first half of "diffs", negative ERR on second half of "diffs"
@@ -24,11 +25,10 @@ import json
 import os
 
 def run_test():
-    horizon = 300
+    horizon = 1000
     #controller_config = robosuite.load_controller_config(default_controller='OSC_POSE')
 
-    #controller_config = robosuite.load_controller_config(custom_fpath = os.path.join(os.path.dirname(__file__), '..', 'controllers/config/jaco_osc_pose_10hz.json'))
-    controller_config = robosuite.load_controller_config(custom_fpath = os.path.join(os.path.dirname(__file__), '..', 'controllers/config/jaco_osc_pose_1hz.json'))
+    controller_config = robosuite.load_controller_config(custom_fpath = os.path.join(os.path.dirname(__file__), '..', 'controllers/config/jaco_osc_pose_%shz.json'%args.control_freq))
     robot_name = args.robot_name
     env = robosuite.make("Lift", robots=robot_name,
                          has_renderer=False,        
@@ -38,7 +38,7 @@ def run_test():
                          use_object_obs=False,
                          camera_names='frontview',
                          controller_configs=controller_config, 
-                         control_freq=1, 
+                         control_freq=args.control_freq, 
                          horizon=horizon)
     active_robot = env.robots[0]
     init_qpos = deepcopy(active_robot.init_qpos)
@@ -176,13 +176,9 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--robot_name', default='Jaco')
-    parser.add_argument('--active_joint', default=3, type=int, help='joint to test')
+    parser.add_argument('--control_freq', default=1, type=int)
     parser.add_argument('--controller_name', default='OSC_POSITION', type=str, help='controller name')
-    parser.add_argument('--config_file', default='', help='path to config file. if not configured, will default to ../confgis/robot_name_joint_position.json')
-    parser.add_argument('--num_rest_steps', default=3, type=int)
     parser.add_argument('--movie_file', default='tune.mp4')
     args = parser.parse_args() 
-    if args.config_file == '':
-        args.config_file = '../controllers/config/%s_%s.json'%(args.robot_name.lower(), args.controller_name.lower())
     run_test()
 
