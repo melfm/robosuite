@@ -1,7 +1,7 @@
 {
   "type": "OSC_POSE",
-  "input_max": 0.002,
-  "input_min": -0.002,
+  "input_max": 1.0,
+  "input_min": -1.0,
   "output_max": 0.002,
   "output_min": -0.002,
   "damping_ratio": 0.1, 
