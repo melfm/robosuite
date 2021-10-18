@@ -14,6 +14,7 @@ from matplotlib import cm
 c = plt.cm.jet(np.linspace(0, 1, 8))
 """
 Max linear velocity of the real jaco is 20cm/s
+=======
 # JRH summary of Ziegler-Nichols method
 1) set damping_ratio and kp to zero
 2) increase kp slowly until you get "overshoot", (positive ERR on first half of "diffs", negative ERR on second half of "diffs"
