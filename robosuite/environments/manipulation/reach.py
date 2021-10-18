@@ -311,7 +311,7 @@ class Reach(SingleArmEnv):
                 ensure_object_boundary_in_range=False,
                 ensure_valid_placement=True,
                 reference_pos=self.table_offset,
-                z_offset=0.1,
+                z_offset=0.3,
             )
 
         # task includes arena, robot, and objects of interest

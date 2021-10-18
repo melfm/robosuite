@@ -10,7 +10,6 @@ class Jaco(ManipulatorModel):
     Args:
         idn (int or str): Number or some other unique identification string for this robot instance
     """
-
     def __init__(self, idn=0):
         super().__init__(xml_path_completion("robots/jaco/robot.xml"), idn=idn)
 
@@ -28,16 +27,21 @@ class Jaco(ManipulatorModel):
 
     @property
     def init_qpos(self):
+        # Robosuite original home pose - works with the 90-rotated base
         # return np.array([3.192, 3.680, -0.000, 1.170, 0.050, 3.760, 3.142])
+        # Robosuite home pose with rotation matching with jaco real
+        # return np.array([4.692, 3.680, 0.000, 1.170, 0.050, 3.760,3.142])
+        # Robosuite home pose a little higher up
+        return np.array([4.692, 3.230, 0.000, 1.170, 0.050, 3.760, 3.142])
         # Jaco Real home pose
-        return np.array([4.942, 2.842, 0.0011, 0.758, 4.6368, 4.492, 5.0244])
+        # return np.array([4.942, 2.842, 0.0011, 0.758, 4.6368, 4.492, 5.0244])
 
     @property
     def base_xpos_offset(self):
         return {
             "bins": (-0.5, -0.1, 0),
             "empty": (-0.6, 0, 0),
-            "table": lambda table_length: (-0.16 - table_length/2, 0, 0)
+            "table": lambda table_length: (-0.16 - table_length / 2, 0, 0)
         }
 
     @property
