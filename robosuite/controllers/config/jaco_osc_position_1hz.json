@@ -1,5 +1,5 @@
 {
-  "type": "OSC_POSE",
+  "type": "OSC_POSITION",
   "input_max": 1.0,
   "input_min": -1.0,
   "output_max": 0.1,
