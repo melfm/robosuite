@@ -1,13 +1,11 @@
 """
-This file implements a wrapper for saving simulation states to disk.
-This data collection wrapper is useful for collecting demonstrations.
+Sim2Real Wrapper helper functions for Jaco Kinova arm.
 """
 
 import os
 import time
 import numpy as np
 from robosuite.wrappers import Wrapper
-from robosuite.utils.mjcf_utils import save_sim_model
 import socket
 
 from copy import deepcopy
@@ -19,7 +17,6 @@ from skimage.transform import resize
 import math
 
 from robosuite.utils import transform_utils
-from IPython import embed
 
 
 class RobotClient():
@@ -82,7 +79,6 @@ class RobotClient():
     def send(self, cmd, msg='XX'):
         packet = self.startseq + cmd + self.midseq + msg + self.endseq
         self.tcp_socket.sendall(packet.encode())
-        # TODO - should prob handle larger packets
         self.tcp_socket.settimeout(100)
         rx = self.tcp_socket.recv(2048).decode()
         return rx
@@ -92,7 +88,6 @@ class RobotClient():
         self.tcp_socket.settimeout(100)
         self.tcp_socket.sendall(packet.encode())
         self.tcp_socket.settimeout(100)
-        # TODO - should prob handle larger packets
         rxl = []
         rxing = True
         cnt = 0
@@ -255,32 +250,6 @@ class JacoSim2RealWrapper(Wrapper):
         return real_eef_pos_rotated, quat
 
 
-    # def handle_state(self, state_tuple):
-    #     timediff, joint_position, joint_velocity, joint_effort, tool_pose, finger_pose = state_tuple
-    #     self.timediff = timediff
-
-        # TODO - this causes an error
-        #self.env.robots[0].set_robot_joint_positions(joint_position[:self.n_joints])
-        #self.env._update_observables()
-        #sim_state = self.env.viewer._get_observations() if self.env.viewer_get_obs else self.env._get_observations()
-        # sim_state['robot0_joint_pos_cos'] = np.cos(joint_position[:self.n_joints])
-        # sim_state['robot0_joint_pos_sin'] = np.sin(joint_position[:self.n_joints])
-        # sim_state['robot0_joint_pos'] = joint_position[:self.n_joints]
-        # sim_state['robot0_joint_vel'] = np.array(joint_velocity)[:self.n_joints]
-        # if self.env.viewer is not None and self.env.renderer != "mujoco":
-        #     self.env.viewer.update()
-
-        # # set sim to be same
-        # sim_eef_pos_sframe, sim_eef_quat_sframe = self.get_sim_posquat() 
-        # sim_state['robot0_eef_pos'] = sim_eef_pos_sframe
-        # sim_state['robot0_eef_quat'] = sim_eef_quat_sframe
-        #  Scene from Lift
-        # (['robot0_joint_pos_cos', 'robot0_joint_pos_sin', 'robot0_joint_vel',
-        # 'robot0_eef_pos', 'robot0_eef_quat', 'robot0_gripper_qpos',
-        # 'robot0_gripper_qvel', 'frontview_image', 'cube_pos', 'cube_quat',
-        # 'gripper_to_cube_pos', 'robot0_proprio-state', 'object-state'])
-
-
     def handle_state(self, state_tuple):
         timediff, joint_position, joint_velocity, joint_effort, tool_pose, finger_pose = state_tuple
         self.timediff = timediff
@@ -289,11 +258,12 @@ class JacoSim2RealWrapper(Wrapper):
         self.real_states["joint_vel"] = np.array(joint_velocity)[:self.n_joints]
         self.real_states["effort"] = np.array(joint_effort)
 
-        #import pdb;pdb.set_trace()
         converted_pose, converted_quat = self.get_real2sim_posquat(tool_pose[:3], tool_pose[3:], angle=90)
 
         self.real_states["eef_pos"]= converted_pose
         self.real_states["eef_quat"]= converted_quat
+        # Note: The actual finger joint poses are part of join_position
+        # finger_pose return here gives finger angles which aren't used in sim.
         self.real_states["finger_pose"] = np.array(joint_position)[7:10]
 
         return self.real_states
