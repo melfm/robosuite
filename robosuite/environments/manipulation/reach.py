@@ -6,13 +6,12 @@ from robosuite.utils.mjcf_utils import CustomMaterial
 
 from robosuite.environments.manipulation.single_arm_env import SingleArmEnv
 
-from robosuite.models.arenas import TableArena, EmptyArena
+from robosuite.models.arenas import EmptyArena
 from robosuite.models.objects import BallObject
 from robosuite.models.tasks import ManipulationTask
 from robosuite.utils.placement_samplers import UniformRandomSampler
 from robosuite.utils.observables import Observable, sensor
 
-from IPython import embed
 class Reach(SingleArmEnv):
     """
     This class corresponds to the reaching task for a single robot arm.
@@ -88,12 +87,10 @@ class Reach(SingleArmEnv):
             "camera names" param.
         camera_segmentations (None or str or list of str or list of list of str): Camera
             for each camera. Valid options are:
-
                 `None`: no segmentation sensor used
                 `'instance'`: segmentation at the class-instance level
                 `'class'`: segmentation at the class level
                 `'element'`: segmentation at the per-geom level
-
             If not None, multiple types of segmentations can be specified. A [list of st
             [multiple / a single] segmentation(s) to use for all cameras. A list of list
             segmentation setting(s) to use.
@@ -227,12 +224,6 @@ class Reach(SingleArmEnv):
             self.table_full_size[0])
         self.robots[0].robot_model.set_base_xpos(xpos)
 
-        # load model for table top workspace
-        #mujoco_arena = TableArena(
-        #    table_full_size=self.table_full_size,
-        #    table_friction=self.table_friction,
-        #    table_offset=self.table_offset,
-        #)
         mujoco_arena = EmptyArena()
 
         # Arena always gets set to zero origin
@@ -256,8 +247,8 @@ class Reach(SingleArmEnv):
         )
         self.ball = BallObject(
             name="ball",
-            size_min=[0.018],  # [0.015, 0.015, 0.015],
-            size_max=[0.024],  # [0.018, 0.018, 0.018])
+            size_min=[0.018],
+            size_max=[0.024],
             rgba=[1, 0, 0, 1],
             density=1,
             joints=[
@@ -278,13 +269,7 @@ class Reach(SingleArmEnv):
                   ]
             )
 
-
-        # get current end effector position
-        #max_pos = [-.75, .75] #np.clip(self.max_object_distance + eef_pos[:3], -1, 1)
-        #min_pos = [-.75, .75] #np.clip(-self.max_object_distance + eef_pos[:3], -1, 1)
-
         ## Create placement initializer
-        # TODO I think we need to create every time  since joint position will be different
         if self.placement_initializer is not None:
             self.placement_initializer.reset()
             self.placement_initializer.add_objects(self.ball)
@@ -364,6 +349,7 @@ class Reach(SingleArmEnv):
     def _reset_internal(self):
         """
         Resets simulation internal configurations.
+        Mel TODO: Is this all reset logic needed ?
         """
         super()._reset_internal()
 
@@ -381,10 +367,8 @@ class Reach(SingleArmEnv):
                 ensure_valid_placement=True,
               )
 
-
             ball_id = self.sim.model.body_name2id(self.ball.root_body)
             distance = 1.0
-            print(distance)
             while distance > .8:
                 # TODO what about z?
                 z = np.random.uniform(high=eef_pos[2]+self.max_object_distance, low=eef_pos[2]-self.max_object_distance)
@@ -393,7 +377,7 @@ class Reach(SingleArmEnv):
                 new_position = np.array(object_placements['ball'][0])
                 new_position[2] = z
                 distance = np.sqrt(np.sum(new_position)**2)
-            print('setting ball', new_position)
+            # print('setting ball', new_position)
             self.sim.data.body_xpos[ball_id] = new_position
             # below only works if there are joints - but we don't want joint bc we need static ball
             # Loop through all objects and reset their positions

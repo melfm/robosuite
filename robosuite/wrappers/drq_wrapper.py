@@ -150,6 +150,7 @@ class GymImageDomainRandomizationWrapper(Wrapper):
         randomize_camera=False,
         randomize_lighting=False,
         randomize_dynamics=False,
+        use_proprio_obs=False,
         color_randomization_args=DEFAULT_COLOR_ARGS,
         camera_randomization_args=DEFAULT_CAMERA_ARGS,
         lighting_randomization_args=DEFAULT_LIGHTING_ARGS,
@@ -171,6 +172,8 @@ class GymImageDomainRandomizationWrapper(Wrapper):
             self.random_state = np.random.RandomState(seed)
         else:
             self.random_state = None
+
+        # TODO: use_proprio_obs
 
         # we don't want change the color of objects of interest or of the robot
         # TODO this works with reach and lift and pickplace, will need to add objects in other envs

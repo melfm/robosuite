@@ -324,6 +324,7 @@ class JacoSim2RealWrapper(Wrapper):
                                    data=converted_action))
 
         self.sim_states["joint_pose"] = self.sim_env.sim.data.qpos[self.sim_env.robots[0]._ref_joint_pos_indexes]
+        self.sim_states["finger_pose"] = self.sim_env.sim.data.qpos[self.sim_env.robots[0]._ref_joint_gripper_actuator_indexes]
         self.sim_states["image_frames"] = sim_ret['frontview_image']
 
         robot_states = {"real_robot_state": robot_ret,
