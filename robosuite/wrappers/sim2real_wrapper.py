@@ -278,6 +278,7 @@ class JacoSim2RealWrapper(Wrapper):
         self.sim_states["joint_pose"] = self.sim_env.sim.data.qpos[self.sim_env.robots[0]._ref_joint_pos_indexes]
         self.sim_states["finger_pose"] = self.sim_env.sim.data.qpos[self.sim_env.robots[0]._ref_joint_gripper_actuator_indexes]
         self.sim_states["image_frames"] = sim_ret['frontview_image']
+        self.sim_states["sim_ret"] = sim_ret
 
         robot_states = {"real_robot_state": real_ret,
                         "sim_robot_state": self.sim_states}
@@ -311,8 +312,14 @@ class JacoSim2RealWrapper(Wrapper):
         if self.control_type == "ANGLE":
             converted_action = action
         elif self.control_type == "TOOL":
-            converted_pose, converted_quat = self.get_real2sim_posquat(input_action[:3], input_action[3:7], angle=-90)
+            if input_action.shape[0] == 4:
+                # OSC Position, no rotations
+                for i in range(3):
+                    input_action = np.insert(input_action, i+3, 0, axis=0)
+            converted_pose, converted_quat = self.get_real2sim_posquat(input_action[:3], input_action[3:6], angle=-90)
             converted_action = np.concatenate((converted_pose, converted_quat), axis=0)
+            # Add finger command
+            converted_action = np.append(converted_action, input_action[-1])
             print('Convereted action ', converted_action)
         else:
             raise ValueError("Unsupported controller!")
@@ -326,6 +333,7 @@ class JacoSim2RealWrapper(Wrapper):
         self.sim_states["joint_pose"] = self.sim_env.sim.data.qpos[self.sim_env.robots[0]._ref_joint_pos_indexes]
         self.sim_states["finger_pose"] = self.sim_env.sim.data.qpos[self.sim_env.robots[0]._ref_joint_gripper_actuator_indexes]
         self.sim_states["image_frames"] = sim_ret['frontview_image']
+        self.sim_states["sim_ret"] = sim_ret
 
         robot_states = {"real_robot_state": robot_ret,
                         "sim_robot_state": self.sim_states}
