@@ -193,7 +193,8 @@ class GymImageDomainRandomizationWrapper(Wrapper):
         if randomize_color:
             color_randomization_args['geom_names'] = use_color_geoms
             # randomize textures
-            color_randomization_args['randomize_texture_images'] = True
+            # TODO: How to add textures?
+            # color_randomization_args['texture_variations'] = True
         if randomize_camera:
             camera_randomization_args['camera_names'] = env.camera_names
         self.randomize_color = randomize_color
