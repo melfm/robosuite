@@ -9,6 +9,7 @@ from robosuite.wrappers import Wrapper
 import socket
 
 from copy import deepcopy
+from collections import deque
 import time
 import numpy as np
 import time
@@ -17,6 +18,7 @@ from skimage.transform import resize
 import math
 
 from robosuite.utils import transform_utils
+from PIL import Image
 
 
 class RobotClient():
@@ -101,17 +103,11 @@ class RobotClient():
                 rxing = False
         allrx = b''.join(rxl)[2:-2]
         # height, width
-        img = np.frombuffer(allrx, dtype=np.uint8).reshape(480, 640, 3)
-        # right now cam is rotated
-        #img = (img* 255).astype(np.uint8)
-        #image_enc = vals[9]
-        #image_height = int(vals[10])
-        #image_width = int(vals[11])
-        #image_data = vals[12]
-        #image_dict = {'enc':image_enc,
-        #              'height':image_height,
-        #              'width':image_width,
-        #              'data':image_data}
+        # The image height and width mysteriously changed
+        # Ideally figure this out from the msgs
+        #img = np.frombuffer(allrx, dtype=np.uint8).reshape(480, 640, 3)
+        img = np.frombuffer(allrx, dtype=np.uint8).reshape(720, 1280, 3)
+
         return img
 
     def home(self):
@@ -166,7 +162,6 @@ class JacoSim2RealWrapper(Wrapper):
             'data': 'none'
         }
 
-
         self.sim_states = {
             "joint_pose": None,
             "joint_vel": None,
@@ -174,7 +169,7 @@ class JacoSim2RealWrapper(Wrapper):
             "eef_pos": None,
             "eef_quat": None,
             "finger_pose": None,
-            "image_frames": None
+            "image_frame": None
         }
 
         self.real_states = {
@@ -185,14 +180,22 @@ class JacoSim2RealWrapper(Wrapper):
             "eef_pos": None,
             "eef_quat": None,
             "finger_pose": None,
-            "image_frames": None
+            "image_frame": None,
+            "stacked_img_frames": None
         }
+
+        # TODO Grab it from config
+        self._k = 3
+        self._real_frames = deque([], maxlen=self._k)
+
+        self.frame_height = self.sim_env.camera_heights[0]
+        self.frame_width = self.sim_env.camera_widths[0]
+
         # control_type options are 'VEL', 'ANGLE', 'TOOL'
         control_type_map = {'JOINT_POSITION':'ANGLE', 
                             'OSC_POSE':'TOOL',
                             'OSC_POSITION':'TOOL'}
  
-        # TODO get joints automatically
         self.n_joints = 7
         self.sim_control_type = self.env.robots[0].controller.name
         self.control_type = control_type_map[self.sim_control_type]
@@ -201,7 +204,7 @@ class JacoSim2RealWrapper(Wrapper):
             self.control_relative = True
         else:
             self.control_relative = self.sim_env.robots[0].controller.use_delta
-        # only relative is tested (much safer on real bot!
+        # only relative is tested (much safer on real robot)
         assert self.control_relative == True
         self.control_unit = 'mrad'
 
@@ -274,16 +277,31 @@ class JacoSim2RealWrapper(Wrapper):
             OrderedDict: Environment observation space after reset occurs
         """
         sim_ret = super().reset()
-        real_ret = self.handle_state(self.robot_client.reset())
+        self.real_states = self.handle_state(self.robot_client.reset())
+        self.sim_states["sim_ret"] = sim_ret
+        # Extra sim observations
         self.sim_states["joint_pose"] = self.sim_env.sim.data.qpos[self.sim_env.robots[0]._ref_joint_pos_indexes]
         self.sim_states["finger_pose"] = self.sim_env.sim.data.qpos[self.sim_env.robots[0]._ref_joint_gripper_actuator_indexes]
-        self.sim_states["image_frames"] = sim_ret['frontview_image']
-        self.sim_states["sim_ret"] = sim_ret
+        # Sim images are upside-down, flip along z
+        obs_pix_sim = sim_ret["frontview_image"][::-1]
+        self.sim_states["image_frame"] = obs_pix_sim
 
-        robot_states = {"real_robot_state": real_ret,
-                        "sim_robot_state": self.sim_states}
+        # Real image frames
+        obs_pix_real = self.robot_client.render()
+        obs_pix_real_train = self.prepare_for_training(obs_pix_real)
 
-        return robot_states
+        obs_pix_real_render = self.prepare_for_rendering(obs_pix_real)
+        self.real_states["image_frame"] = obs_pix_real_render
+
+        for _ in range(self._k):
+            self._real_frames.append(obs_pix_real_train)
+
+        self.real_states["stacked_img_frames"] = self._get_stack_obs()
+
+        real_and_sim_states = {"real_robot_state": self.real_states,
+                               "sim_robot_state": self.sim_states}
+
+        return real_and_sim_states
 
     def step(self, input_action):
         """
@@ -324,58 +342,70 @@ class JacoSim2RealWrapper(Wrapper):
         else:
             raise ValueError("Unsupported controller!")
 
-        robot_ret = self.handle_state(
+        self.robot_ret = self.handle_state(
                           self.robot_client.step(command_type=self.control_type,
                                    relative=self.control_relative,
                                    unit=self.control_unit,
                                    data=converted_action))
 
+        self.sim_states["sim_ret"] = sim_ret
+        # Extra sim observations
         self.sim_states["joint_pose"] = self.sim_env.sim.data.qpos[self.sim_env.robots[0]._ref_joint_pos_indexes]
         self.sim_states["finger_pose"] = self.sim_env.sim.data.qpos[self.sim_env.robots[0]._ref_joint_gripper_actuator_indexes]
-        self.sim_states["image_frames"] = sim_ret['frontview_image']
-        self.sim_states["sim_ret"] = sim_ret
+        # Sim image frames
+        # Images are upside-down, flip along z
+        obs_pix_sim = sim_ret['frontview_image'][::-1]
+        self.sim_states["image_frame"] = obs_pix_sim
 
-        robot_states = {"real_robot_state": robot_ret,
+        # Real image frames
+        obs_pix_real = self.robot_client.render()
+        obs_pix_real_train = self.prepare_for_training(obs_pix_real)
+
+        self._real_frames.append(obs_pix_real_train)
+        self.real_states["stacked_img_frames"] = self._get_stack_obs()
+
+        obs_pix_real_render = self.prepare_for_rendering(obs_pix_real)
+        self.real_states["image_frame"] = obs_pix_real_render
+
+        robot_states = {"real_robot_state": self.robot_ret,
                         "sim_robot_state": self.sim_states}
 
         ret = (robot_states, reward, done, misc)
         return ret
 
-    def render(self,
-               height=640,
-               width=480,
-               camera_id=-1,
-               overlays=(),
-               depth=False,
-               segmentation=False,
-               scene_option=None):
+    def render(self):
         """
          Args:
            height: Viewport height (number of pixels). Optional, defaults to 240.
            width: Viewport width (number of pixels). Optional, defaults to 320.
-           camera_id: Optional camera name or index. Defaults to -1, the free
-             camera, which is always defined. A nonnegative integer or string
-             corresponds to a fixed camera, which must be defined in the model XML.
-             If `camera_id` is a string then the camera must also be named.
-           overlays: An optional sequence of `TextOverlay` instances to draw. Only
-             supported if `depth` is False.
-           depth: If `True`, this method returns a NumPy float array of depth values
-             (in meters). Defaults to `False`, which results in an RGB image.
-           segmentation: If `True`, this method returns a 2-channel NumPy int32 array
-             of label values where the pixels of each object are labeled with the
-             pair (mjModel ID, mjtObj enum object type). Background pixels are
-             labeled (-1, -1). Defaults to `False`, which returns an RGB image.
-           scene_option: An optional `wrapper.MjvOption` instance that can be used to
-             render the scene with custom visualization options. If None then the
-             default options will be used.
          Returns:
            The rendered RGB, depth or segmentation image.
         """
-        img = self.robot_client.render()
+        return self.robot_client.render()
+
+    def prepare_for_rendering(self, img, height=640, width=480):
         img = resize(img, (width, height))
         # skcit op changes the type, revert it back
         img = (img * 255).astype(np.uint8)
         return img
+
+    def prepare_for_training(self, img):
+        img = resize(img, (self.frame_width, self.frame_height))
+        img = (img * 255).astype(np.uint8)
+        img = img.reshape(3, img.shape[0],
+                          img.shape[1])
+        return img
+
+    def _get_stack_obs(self):
+        assert len(self._real_frames) == self._k
+        concat_frames = np.concatenate(list(self._real_frames), axis=0)
+        # For debugging purposes to make sure frames are aligned correctly
+        # Grab the first frame
+        # obs_pix = concat_frames[0:3, :, :]
+        # obs_pix = obs_pix.reshape(obs_pix.shape[1], obs_pix.shape[2], 3)
+        # im = Image.fromarray(obs_pix)
+        # im.save('Sim2RealWrapper_real_robot_image_frame.png')
+        return concat_frames
 
     def close(self):
         self.robot_client.end()
