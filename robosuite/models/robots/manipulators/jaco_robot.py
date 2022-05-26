@@ -4,7 +4,7 @@ from robosuite.models.robots.manipulators.manipulator_model import ManipulatorMo
 from robosuite.utils.mjcf_utils import xml_path_completion
 DEFAULT_INIT_QPOS = np.array([3.192, 3.680, -0.000, 1.170, 0.050, 3.760, 3.142])
 # Jaco Real home pose
-REAL_INIT_QPOS = np.array([4.942, 2.842, 0.0011, 0.758, 4.6368, 4.492, 5.0244])
+REAL_INIT_QPOS = np.array([4.982, 2.841, 6.24, 0.758, 4.632, 4.512, 5.0244])
 DOWN_INIT_QPOS = np.array([4.992, 3.680, -0.000, 1.170, 0.050, 3.760, 3.142])
 
 
