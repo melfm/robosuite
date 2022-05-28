@@ -229,22 +229,6 @@ class Reach(SingleArmEnv):
         # Arena always gets set to zero origin
         mujoco_arena.set_origin([0, 0, 0])
 
-        # initialize objects of interest
-        tex_attrib = {
-            "type": "ball",
-        }
-        mat_attrib = {
-            "texrepeat": "1 1",
-            "specular": "0.4",
-            "shininess": "0.1",
-        }
-        redwood = CustomMaterial(
-            texture="WoodRed",
-            tex_name="redwood",
-            mat_name="redwood_mat",
-            tex_attrib=tex_attrib,
-            mat_attrib=mat_attrib,
-        )
         self.ball = BallObject(
             name="ball",
             size_min=[0.018],
@@ -381,9 +365,13 @@ class Reach(SingleArmEnv):
             self.sim.data.body_xpos[ball_id] = new_position
             # below only works if there are joints - but we don't want joint bc we need static ball
             # Loop through all objects and reset their positions
-            self.sim.data.set_joint_qpos('ball_x', new_position[0])
-            self.sim.data.set_joint_qpos('ball_y', new_position[1])
-            self.sim.data.set_joint_qpos('ball_z', new_position[2])
+            # self.sim.data.set_joint_qpos('ball_x', new_position[0])
+            # self.sim.data.set_joint_qpos('ball_y', new_position[1])
+            # self.sim.data.set_joint_qpos('ball_z', new_position[2])
+            self.sim.data.set_joint_qpos('ball_x', - 0.489)
+            self.sim.data.set_joint_qpos('ball_y', - 0.325)
+            self.sim.data.set_joint_qpos('ball_z', 1.2168)
+
             #for obj_pos, obj_quat, obj in object_placements.values():
             #    self.sim.data.set_joint_qpos(
             #        obj.joints[0],
@@ -420,17 +408,6 @@ class Reach(SingleArmEnv):
         else:
             return False
 
-class ReachBaby(Reach):
-    """
-    Easier version of task
-    """
-
-    def __init__(self, **kwargs):
-        assert (
-                "single_object_mode" not in kwargs and "object_type" not in kwargs
-        ), "invalid set of arguments"
-        super().__init__(max_object_distance=0.05, **kwargs)
-
 class ReachEasy(Reach):
     """
     Easier version of task
@@ -444,7 +421,7 @@ class ReachEasy(Reach):
 
 class ReachMedium(Reach):
     """
-    Easier version of task
+    Medium version of task
     """
 
     def __init__(self, **kwargs):
@@ -455,7 +432,7 @@ class ReachMedium(Reach):
 
 class ReachHard(Reach):
     """
-    Easier version of task
+    Hard version of task
     """
 
     def __init__(self, **kwargs):
