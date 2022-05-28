@@ -138,7 +138,7 @@ class RobotClient():
  
 
 class JacoSim2RealWrapper(Wrapper):
-    def __init__(self, sim_env, robot_server_ip='127.0.0.1', robot_server_port=9030, max_step=np.deg2rad(10)):
+    def __init__(self, sim_env, robot_server_ip='127.0.0.1', robot_server_port=9030, max_step=np.deg2rad(10), stack_frame=3):
         """
         Initializes the data collection wrapper.
 
@@ -169,7 +169,8 @@ class JacoSim2RealWrapper(Wrapper):
             "eef_pos": None,
             "eef_quat": None,
             "finger_pose": None,
-            "image_frame": None
+            "image_frame": None,
+            "stacked_img_frames": None
         }
 
         self.real_states = {
@@ -184,12 +185,16 @@ class JacoSim2RealWrapper(Wrapper):
             "stacked_img_frames": None
         }
 
-        # TODO Grab it from config
-        self._k = 3
+        self._k = stack_frame
         self._real_frames = deque([], maxlen=self._k)
+        # whether to use real robot observations or not
+        # typicall I use sim_obs for debugging purposes.
+        self.use_real_pix_obs = False
 
         self.frame_height = self.sim_env.camera_heights[0]
         self.frame_width = self.sim_env.camera_widths[0]
+
+        self.keys = [f"{cam_name}_image" for cam_name in self.sim_env.camera_names]
 
         # control_type options are 'VEL', 'ANGLE', 'TOOL'
         control_type_map = {'JOINT_POSITION':'ANGLE', 
@@ -282,19 +287,23 @@ class JacoSim2RealWrapper(Wrapper):
         # Extra sim observations
         self.sim_states["joint_pose"] = self.sim_env.sim.data.qpos[self.sim_env.robots[0]._ref_joint_pos_indexes]
         self.sim_states["finger_pose"] = self.sim_env.sim.data.qpos[self.sim_env.robots[0]._ref_joint_gripper_actuator_indexes]
-        # Sim images are upside-down, flip along z
-        obs_pix_sim = sim_ret["frontview_image"][::-1]
-        self.sim_states["image_frame"] = obs_pix_sim
 
-        # Real image frames
-        obs_pix_real = self.robot_client.render()
-        obs_pix_real_train = self.prepare_for_training(obs_pix_real)
+        obs_pix_sim, obs_pix_raw = self._get_sim_image_obs(sim_ret)
+        self.sim_states["image_frame"] = obs_pix_raw
 
-        obs_pix_real_render = self.prepare_for_rendering(obs_pix_real)
-        self.real_states["image_frame"] = obs_pix_real_render
+        if self.use_real_pix_obs:
+            # Real image frames
+            obs_pix_real = self.robot_client.render()
+            obs_pix_real_train = self.prepare_for_training(obs_pix_real)
+
+            obs_pix_real_render = self.prepare_for_rendering(obs_pix_real)
+            self.real_states["image_frame"] = obs_pix_real_render
 
         for _ in range(self._k):
-            self._real_frames.append(obs_pix_real_train)
+            if self.use_real_pix_obs:
+                self._real_frames.append(obs_pix_real_train)
+            else:
+                self._real_frames.append(obs_pix_sim)
 
         self.real_states["stacked_img_frames"] = self._get_stack_obs()
 
@@ -318,27 +327,28 @@ class JacoSim2RealWrapper(Wrapper):
                 - (bool) whether the current episode is completed or not
                 - (dict) misc information
         """
-        action = np.clip(input_action, -self.max_step, self.max_step) 
+        # TODO: Is this the correct way of action clipping on real?
+        action = np.clip(input_action, -self.max_step, self.max_step)
         sim_all = super().step(action)
         sim_ret = sim_all[0]
         reward = sim_all[1]
         done = sim_all[2]
         misc = sim_all[3]
-        print('stepping input ', input_action)
-        print('stepping ', action)
+        print('Policy Action ', input_action)
+        print('Clipped Action ', action)
 
         if self.control_type == "ANGLE":
             converted_action = action
         elif self.control_type == "TOOL":
-            if input_action.shape[0] == 4:
+            if action.shape[0] == 4:
                 # OSC Position, no rotations
                 for i in range(3):
-                    input_action = np.insert(input_action, i+3, 0, axis=0)
-            converted_pose, converted_quat = self.get_real2sim_posquat(input_action[:3], input_action[3:6], angle=-90)
+                    action = np.insert(action, i+3, 0, axis=0)
+            converted_pose, converted_quat = self.get_real2sim_posquat(action[:3], action[3:6], angle=-90)
             converted_action = np.concatenate((converted_pose, converted_quat), axis=0)
             # Add finger command
-            converted_action = np.append(converted_action, input_action[-1])
-            print('Convereted action ', converted_action)
+            converted_action = np.append(converted_action, action[-1])
+            print('Sim2Real Convereted action ', converted_action)
         else:
             raise ValueError("Unsupported controller!")
 
@@ -347,27 +357,32 @@ class JacoSim2RealWrapper(Wrapper):
                                    relative=self.control_relative,
                                    unit=self.control_unit,
                                    data=converted_action))
+        # self.robot_ret = None
 
         self.sim_states["sim_ret"] = sim_ret
         # Extra sim observations
         self.sim_states["joint_pose"] = self.sim_env.sim.data.qpos[self.sim_env.robots[0]._ref_joint_pos_indexes]
         self.sim_states["finger_pose"] = self.sim_env.sim.data.qpos[self.sim_env.robots[0]._ref_joint_gripper_actuator_indexes]
-        # Sim image frames
-        # Images are upside-down, flip along z
-        obs_pix_sim = sim_ret['frontview_image'][::-1]
-        self.sim_states["image_frame"] = obs_pix_sim
 
-        # Real image frames
-        obs_pix_real = self.robot_client.render()
-        obs_pix_real_train = self.prepare_for_training(obs_pix_real)
+        obs_pix_sim, obs_pix_raw = self._get_sim_image_obs(sim_ret)
+        self.sim_states["image_frame"] = obs_pix_raw
 
-        self._real_frames.append(obs_pix_real_train)
+        if self.use_real_pix_obs:
+            # Real image frames
+            obs_pix_real = self.robot_client.render()
+            obs_pix_real_train = self.prepare_for_training(obs_pix_real)
+
+            obs_pix_real_render = self.prepare_for_rendering(obs_pix_real)
+            self.real_states["image_frame"] = obs_pix_real_render
+
+        if self.use_real_pix_obs:
+            self._real_frames.append(obs_pix_real_train)
+        else:
+            self._real_frames.append(obs_pix_sim)
+
         self.real_states["stacked_img_frames"] = self._get_stack_obs()
 
-        obs_pix_real_render = self.prepare_for_rendering(obs_pix_real)
-        self.real_states["image_frame"] = obs_pix_real_render
-
-        robot_states = {"real_robot_state": self.robot_ret,
+        robot_states = {"real_robot_state": self.real_states,
                         "sim_robot_state": self.sim_states}
 
         ret = (robot_states, reward, done, misc)
@@ -390,8 +405,10 @@ class JacoSim2RealWrapper(Wrapper):
         return img
 
     def prepare_for_training(self, img):
+        #import pdb;pdb.set_trace()
+        print('image prep: ', img.shape)
         img = resize(img, (self.frame_width, self.frame_height))
-        img = (img * 255).astype(np.uint8)
+        #img = (img * 255).astype(np.uint8)
         img = img.reshape(3, img.shape[0],
                           img.shape[1])
         return img
@@ -406,6 +423,32 @@ class JacoSim2RealWrapper(Wrapper):
         # im = Image.fromarray(obs_pix)
         # im.save('Sim2RealWrapper_real_robot_image_frame.png')
         return concat_frames
+
+
+    def _get_sim_image_obs(self, obs_dict, verbose=False):
+        """
+        Filters keys of interest out and concatenate the information.
+        Args:
+            obs_dict (OrderedDict): ordered dictionary of observations
+            verbose (bool): Whether to print out to console as observation keys are processed
+        Returns:
+            np.array: image observations into an array combined across channels
+        """
+        ob_lst = []
+        for key in self.keys:
+            if key in obs_dict:
+                if verbose:
+                    print("adding key: {}".format(key))
+                # Sim images are upside-down, flip along z
+                obs_pix_raw = obs_dict[key][::-1]
+                # Reshaped for training (channel, width, height)
+                obs_pix = obs_pix_raw.reshape(3, obs_pix_raw.shape[0],
+                                          obs_pix_raw.shape[1])
+                ob_lst.append(np.array(obs_pix))
+        # concatenate over channels
+        # the case for concatenating rgb, depth etc
+        return np.concatenate(ob_lst, 2), obs_pix_raw
+
 
     def close(self):
         self.robot_client.end()
