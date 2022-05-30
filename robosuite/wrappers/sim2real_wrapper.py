@@ -327,8 +327,21 @@ class JacoSim2RealWrapper(Wrapper):
                 - (bool) whether the current episode is completed or not
                 - (dict) misc information
         """
-        # TODO: Is this the correct way of action clipping on real?
-        action = np.clip(input_action, -self.max_step, self.max_step)
+
+        # These need to be tuned for the policy to run smoothly on the
+        # real arm. The controller on the real is not as smooth as the sim.
+        self.input_max = self.sim_env.robots[0].controller.input_max[0]
+        self.input_min = self.sim_env.robots[0].controller.input_min[0]
+        self.output_max = self.sim_env.robots[0].controller.output_max[0]
+        self.output_min = self.sim_env.robots[0].controller.output_min[0]
+
+        # Apply similar action scaling as done inside scale_action() in base_controller.py
+        action_scale = abs(self.output_max - self.output_min) / abs(self.input_max - self.input_min)
+        action_output_transform = (self.output_max + self.output_min) / 2.0
+        action_input_transform = (self.input_max + self.input_min) / 2.0
+        action = np.clip(input_action, self.input_min, self.input_max)
+        action = (action - action_input_transform) * action_scale + action_output_transform
+
         sim_all = super().step(action)
         sim_ret = sim_all[0]
         reward = sim_all[1]
@@ -348,7 +361,7 @@ class JacoSim2RealWrapper(Wrapper):
             converted_action = np.concatenate((converted_pose, converted_quat), axis=0)
             # Add finger command
             converted_action = np.append(converted_action, action[-1])
-            print('Sim2Real Convereted action ', converted_action)
+            # print('Sim2Real Convereted action ', converted_action)
         else:
             raise ValueError("Unsupported controller!")
 
@@ -405,10 +418,8 @@ class JacoSim2RealWrapper(Wrapper):
         return img
 
     def prepare_for_training(self, img):
-        #import pdb;pdb.set_trace()
-        print('image prep: ', img.shape)
         img = resize(img, (self.frame_width, self.frame_height))
-        #img = (img * 255).astype(np.uint8)
+        img = (img * 255).astype(np.uint8)
         img = img.reshape(3, img.shape[0],
                           img.shape[1])
         return img
