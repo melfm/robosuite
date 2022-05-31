@@ -1,3 +1,4 @@
+from multiprocessing.sharedctypes import Value
 import matplotlib
 
 matplotlib.use("Agg")
@@ -18,19 +19,30 @@ Max linear velocity of the real jaco is 20cm/s
 1) set damping_ratio and kp to zero
 2) increase kp slowly until you get "overshoot", (positive ERR on first half of "diffs", negative ERR on second half of "diffs"
 3) increase damping ratio to squash the overshoot
-4) watch and make sure you aren't "railing" the torque values on the big diffs (30.5 for the first 4 joints on Jaco). If this is happening, you may need to decrease the step size (min_max)
+4) watch and make sure you aren't "railing" the torque values on the big diffs (30.5 for the first 4 joints on Jaco). 
+If this is happening, you may need to decrease the step size (min_max)
 I want it to slightly undershoot the biggest joint_diff in 1 step in a tuned controller
 All others should have ~.000x error
+Note: Make sure input_min/max and output_min/max match for tuning the configs since no rescaling
+is happening here.
 """
 
 
 def run_test():
     horizon = 1000
 
-    controller_config = robosuite.load_controller_config(
-        custom_fpath=os.path.join(
-            os.path.dirname(__file__), '..',
-            'controllers/config/jaco_osc_pose_%shz.json' % args.control_freq))
+    if args.controller_name == 'OSC_POSITION':
+        controller_config = robosuite.load_controller_config(
+            custom_fpath=os.path.join(
+                os.path.dirname(__file__), '..',
+                'controllers/config/jaco_osc_position_%shz.json' % args.control_freq))
+    elif args.controller_name == 'OSC_POSE':
+        controller_config = robosuite.load_controller_config(
+            custom_fpath=os.path.join(
+                os.path.dirname(__file__), '..',
+                'controllers/config/jaco_osc_pose_%shz.json' % args.control_freq))
+    else:
+        raise ValueError('Controller not supported.')
 
     result_dir = 'controller_tuning_res'
     if not os.path.exists(result_dir):
@@ -135,34 +147,43 @@ def run_test():
     print('init pos', init_qpos)
     active_robot = env.robots[0]
     for i in range(action_array.shape[0]):
-        action = list(targets[i] - prev_eef) + [0, 0, 0, 0]
+        if active_robot.controller_config['type'] == 'OSC_POSE':
+            action = list(targets[i] - prev_eef) + [0, 0, 0, 0]
+        else:
+            # OSC_POSITION - add extra dim for finger
+            action = list(targets[i] - prev_eef) + [0]
+
         target_position = prev_eef + action[:3]
         target_positions.append(target_position)
-        o, r, done, _ = env.step(action)
+        o, _, _, _ = env.step(action)
         joint_torques.append(active_robot.torques)
         eef_pos = o['robot0_eef_pos']
         positions.append(eef_pos)
         eef_quat = o['robot0_eef_quat']
         orientations.append(eef_quat)
         frames.append(o['frontview_image'][::-1])
-        # error = target_position - eef_pos
         prev_eef = deepcopy(eef_pos)
     video_dir = os.path.join(result_dir, args.movie_file)
     mimwrite(video_dir, frames)
 
     plt.figure()
+    ax = plt.subplot(111)
     target_positions = np.array(target_positions)
     for d in range(target_positions.shape[1]):
-        plt.plot(target_positions[:, d],
+        ax.plot(target_positions[:, d],
                  linestyle='--',
                  c=c[d],
                  label=str(d) + ' step target')
-        plt.plot(np.array(positions)[:, d], c=c[d])
-        plt.plot(np.array(targets)[:, d],
-                 linestyle=':',
-                 c=c[d],
-                 label=str(d) + ' ideal target')
-    plt.legend()
+        ax.plot(np.array(positions)[:, d], c=c[d],
+                label=str(d) + ' actual pose')
+        # ax.plot(np.array(targets)[:, d],
+        #          linestyle=':',
+        #          c=c[d],
+        #          label=str(d) + ' ideal target')
+
+    box = ax.get_position()
+    ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
+    ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     plt.savefig(os.path.join(result_dir, 'pos.png'))
     plt.close()
 
@@ -187,7 +208,7 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--robot_name', default='Jaco')
-    parser.add_argument('--control_freq', default=1, type=int)
+    parser.add_argument('--control_freq', default=5, type=int)
     parser.add_argument('--controller_name',
                         default='OSC_POSITION',
                         type=str,

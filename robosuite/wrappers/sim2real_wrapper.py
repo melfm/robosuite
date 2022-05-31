@@ -2,7 +2,6 @@
 Sim2Real Wrapper helper functions for Jaco Kinova arm.
 """
 
-import os
 import time
 import numpy as np
 from robosuite.wrappers import Wrapper
@@ -10,12 +9,9 @@ import socket
 
 from copy import deepcopy
 from collections import deque
-import time
 import numpy as np
-import time
 import json
 from skimage.transform import resize
-import math
 
 from robosuite.utils import transform_utils
 from PIL import Image
@@ -460,6 +456,14 @@ class JacoSim2RealWrapper(Wrapper):
         # the case for concatenating rgb, depth etc
         return np.concatenate(ob_lst, 2), obs_pix_raw
 
+
+    def send_robot_to_sim_home(self):
+        DOWN_INIT_QPOS = np.array([4.992, 3.680, -0.000, 1.170, 0.050, 3.760, 3.142])
+
+        self.robot_client.step(command_type='ANGLE',
+                                relative=False,
+                                unit=self.control_unit,
+                                data=DOWN_INIT_QPOS)
 
     def close(self):
         self.robot_client.end()

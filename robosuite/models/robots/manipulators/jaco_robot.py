@@ -16,7 +16,7 @@ class Jaco(ManipulatorModel):
         idn (int or str): Number or some other unique identification string for this robot instance
     """
 
-    def __init__(self, idn=0, init_qpos=REAL_INIT_QPOS):
+    def __init__(self, idn=0, init_qpos=DOWN_INIT_QPOS):
         super().__init__(xml_path_completion("robots/jaco/robot.xml"), idn=idn)
         self.set_init_qpos(init_qpos)
 
