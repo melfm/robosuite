@@ -12,7 +12,7 @@ from gym.core import Env
 from robosuite.wrappers import Wrapper
 from collections import deque
 import numpy as np
-from dm_env import StepType, specs
+from dm_env import StepType
 from robosuite.wrappers import Wrapper
 from robosuite.utils.mjmod import TextureModder, LightingModder, CameraModder, DynamicsModder
 
@@ -48,9 +48,9 @@ DEFAULT_LIGHTING_ARGS = {
     'randomize_active': True,
     'position_perturbation_size': 0.1,
     'direction_perturbation_size': 0.35,
-    'specular_perturbation_size': 0.1,
-    'ambient_perturbation_size': 0.1,
-    'diffuse_perturbation_size': 0.1,
+    'specular_perturbation_size': 0.5,
+    'ambient_perturbation_size': 0.2,
+    'diffuse_perturbation_size': 2.0,
 }
 
 DEFAULT_DYNAMICS_ARGS = {
@@ -93,17 +93,12 @@ DEFAULT_DYNAMICS_ARGS = {
 }
 
 class ExtendedTimeStep(NamedTuple):
-    #__slots__ = ("step_type", "reward", "discount", "observation", "action")
-    #def __init__(self, step_type, reward, discount, observation, action):
-    #     super().__init__(step_type=step_type, reward=reward, discount=discount, observation=observation, action=action)
 
     step_type: Any
     reward: Any
     discount: Any
     observation: Any
     action: Any
-    #def __new__(self, step_type, reward, discount, observation, action):
-    #    return super().__new__(NamedTuple, step_type=step_type, reward=reward, discount=discount, observation=observation, action=action)
 
     def first(self):
         return self.step_type == StepType.FIRST
@@ -113,10 +108,6 @@ class ExtendedTimeStep(NamedTuple):
 
     def last(self):
         return self.step_type == StepType.LAST
-
-#    def __getitem__(self, attr):
-#        return getattr(self, attr)
-
 
 class GymImageDomainRandomizationWrapper(Wrapper):
     """
@@ -174,6 +165,7 @@ class GymImageDomainRandomizationWrapper(Wrapper):
             self.random_state = None
 
         # TODO: use_proprio_obs
+        self.use_proprio_obs = use_proprio_obs
 
         # we don't want change the color of objects of interest or of the robot
         # TODO this works with reach and lift and pickplace, will need to add objects in other envs
@@ -193,8 +185,7 @@ class GymImageDomainRandomizationWrapper(Wrapper):
         if randomize_color:
             color_randomization_args['geom_names'] = use_color_geoms
             # randomize textures
-            # TODO: How to add textures?
-            # color_randomization_args['texture_variations'] = True
+            color_randomization_args['texture_variations'] = ("rgb", "checker", "noise", "gradient")
         if randomize_camera:
             camera_randomization_args['camera_names'] = env.camera_names
         self.randomize_color = randomize_color
@@ -258,8 +249,6 @@ class GymImageDomainRandomizationWrapper(Wrapper):
         low, high = self.env.action_spec
         self.action_space = spaces.Box(low=low, high=high)
         self.action_shape = low.shape
-        # TODO reward range is a best guess
-        self.reward_range = (0, 30.0)
         self._max_episode_steps = self.env.horizon
         if self.randomize_on_init:
             print('setting initial randomization')

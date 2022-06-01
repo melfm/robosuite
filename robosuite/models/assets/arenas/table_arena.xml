@@ -6,6 +6,19 @@
     <!-- ceramic table texture and material-->
     <texture file="../textures/ceramic.png" type="cube" name="tex-ceramic"/>
     <material name="table_ceramic" reflectance="0.0" shininess="0.0" specular="0.2" texrepeat="1 1" texture="tex-ceramic" />
+
+    <texture file="../textures/dark-wood.png" type="cube" name="dark-wood"/>
+    <material name="table_dark_wood" reflectance="0.0" shininess="0.0" specular="0.2" texrepeat="1 1" texture="dark-wood" />
+
+    <texture file="../textures/light-wood.png" type="cube" name="light-wood"/>
+    <material name="table_light_wood" reflectance="0.0" shininess="0.0" specular="0.2" texrepeat="1 1" texture="light-wood" />
+
+    <texture file="../textures/light-wood.png" type="cube" name="light-wood"/>
+    <material name="table_light_wood" reflectance="0.0" shininess="0.0" specular="0.2" texrepeat="1 1" texture="light-wood" />
+
+    <texture file="../textures/metal.png" type="cube" name="metal"/>
+    <material name="table_metal" reflectance="0.0" shininess="0.0" specular="0.2" texrepeat="1 1" texture="metal" />
+
     <!-- steel legs -->
     <texture file="../textures/steel-brushed.png" type="cube" name="tex-steel-brushed"/>
     <material name="table_legs_metal" reflectance="0.8" shininess="0.8" texrepeat="1 1" texture="tex-steel-brushed" />
