@@ -185,7 +185,7 @@ class JacoSim2RealWrapper(Wrapper):
         self._real_frames = deque([], maxlen=self._k)
         # whether to use real robot observations or not
         # typicall I use sim_obs for debugging purposes.
-        self.use_real_pix_obs = False
+        self.use_real_pix_obs = True
 
         self.frame_height = self.sim_env.camera_heights[0]
         self.frame_width = self.sim_env.camera_widths[0]
@@ -331,6 +331,9 @@ class JacoSim2RealWrapper(Wrapper):
         self.output_max = self.sim_env.robots[0].controller.output_max[0]
         self.output_min = self.sim_env.robots[0].controller.output_min[0]
 
+        # Sim controller is already doing action clipping so send in raw inputs.
+        sim_all = super().step(input_action)
+
         # Apply similar action scaling as done inside scale_action() in base_controller.py
         action_scale = abs(self.output_max - self.output_min) / abs(self.input_max - self.input_min)
         action_output_transform = (self.output_max + self.output_min) / 2.0
@@ -338,7 +341,6 @@ class JacoSim2RealWrapper(Wrapper):
         action = np.clip(input_action, self.input_min, self.input_max)
         action = (action - action_input_transform) * action_scale + action_output_transform
 
-        sim_all = super().step(action)
         sim_ret = sim_all[0]
         reward = sim_all[1]
         done = sim_all[2]
