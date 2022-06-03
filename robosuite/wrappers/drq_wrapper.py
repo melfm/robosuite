@@ -98,6 +98,7 @@ class ExtendedTimeStep(NamedTuple):
     reward: Any
     discount: Any
     observation: Any
+    state_observation: Any
     action: Any
 
     def first(self):
@@ -164,10 +165,9 @@ class GymImageDomainRandomizationWrapper(Wrapper):
         else:
             self.random_state = None
 
-        # TODO: use_proprio_obs
         self.use_proprio_obs = use_proprio_obs
 
-        # we don't want change the color of objects of interest or of the robot
+        # Don't change the color of objects of interest or of the robot
         # TODO this works with reach and lift and pickplace, will need to add objects in other envs
         leave_out_color_geoms = [
             'cube', 'sphere', 'gripper', 'robot', 'milk', 'bread', 'cereal',
@@ -249,6 +249,12 @@ class GymImageDomainRandomizationWrapper(Wrapper):
         low, high = self.env.action_spec
         self.action_space = spaces.Box(low=low, high=high)
         self.action_shape = low.shape
+
+        if self.use_proprio_obs:
+            proprio_dim = self.env.observation_spec()['robot0_proprio-state'].shape[0]
+            object_dim = self.env.observation_spec()['object-state'].shape[0]
+            self.state_obs_shape = (proprio_dim + object_dim,)
+
         self._max_episode_steps = self.env.horizon
         if self.randomize_on_init:
             print('setting initial randomization')
@@ -352,10 +358,19 @@ class GymImageDomainRandomizationWrapper(Wrapper):
             self._frames.append(img)
         obs = self._get_stack_obs()
         action = np.zeros_like(self.action_spec[0]).astype(np.float32)
+
+        # Proprioceptive obs
+        state_observation = None
+        if self.use_proprio_obs:
+            proprio = ret['robot0_proprio-state']
+            object = ret['object-state']
+            state_observation = np.append(object, proprio)
+
         return ExtendedTimeStep(step_type=dm_env.StepType.FIRST,
                                 discount=self.discount,
                                 reward=0.0,
                                 observation=obs,
+                                state_observation=state_observation,
                                 action=action)
 
     def _get_stack_obs(self):
@@ -388,7 +403,14 @@ class GymImageDomainRandomizationWrapper(Wrapper):
         ob_dict, reward, done, info = self.env.step(action)
         self._frames.append(self._get_image_obs(ob_dict))
         obs = self._get_stack_obs()
-        #return obs, reward, done, info
+
+        # Proprioceptive obs
+        state_observation = None
+        if self.use_proprio_obs:
+            proprio = ob_dict['robot0_proprio-state']
+            object = ob_dict['object-state']
+            state_observation = np.append(object, proprio)
+
         if not done:
             step_type = dm_env.StepType.MID
         else:
@@ -397,6 +419,7 @@ class GymImageDomainRandomizationWrapper(Wrapper):
                                 discount=self.discount,
                                 reward=reward,
                                 observation=obs,
+                                state_observation=state_observation,
                                 action=action)
 
     def randomize_domain(self):
@@ -423,12 +446,9 @@ class GymImageDomainRandomizationWrapper(Wrapper):
             modder.restore_defaults()
 
     def render(self,
-               mode='human',
                width=256,
                height=256,
-               depth=False,
-               task_name=None):
-        """ render based on ibit call. mode / task_name are unused"""
+               depth=False):
         data = self.env.sim.render(camera_name=self.env.camera_names[0],
                                    width=width,
                                    height=height,

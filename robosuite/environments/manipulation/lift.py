@@ -312,7 +312,7 @@ class Lift(SingleArmEnv):
                 name="ObjectSampler",
                 mujoco_objects=self.cube,
                 x_range=[-0.03, 0.03],
-                y_range=[-0.03, 0.03],
+                y_range=[0.15, 0.2],
                 rotation=None,
                 ensure_object_boundary_in_range=False,
                 ensure_valid_placement=True,
