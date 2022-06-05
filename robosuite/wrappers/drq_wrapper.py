@@ -185,7 +185,8 @@ class GymImageDomainRandomizationWrapper(Wrapper):
         if randomize_color:
             color_randomization_args['geom_names'] = use_color_geoms
             # randomize textures
-            color_randomization_args['texture_variations'] = ("rgb", "checker", "noise", "gradient")
+            # color_randomization_args['texture_variations'] = ("rgb", "checker", "noise", "gradient")
+            color_randomization_args['texture_variations'] = ("rgb")
         if randomize_camera:
             camera_randomization_args['camera_names'] = env.camera_names
         self.randomize_color = randomize_color
