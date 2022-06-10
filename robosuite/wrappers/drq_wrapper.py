@@ -172,8 +172,7 @@ class GymImageDomainRandomizationWrapper(Wrapper):
         leave_out_color_geoms = [
             'cube', 'sphere', 'gripper', 'robot', 'milk', 'bread', 'cereal',
             'can', 'handle', 'nut', 'table_visual', 'floor', 'wall_left_visual','wall_right_visual',
-            'table_leg1_visual','table_leg2_visual','table_leg3_visual', 'table_leg4_visual',
-            'wall_rear_visual', 'wall_front_visual','wall_leftcorner_visual', 'wall_rightcorner_visual'
+            'table_leg1_visual','table_leg2_visual','table_leg3_visual', 'table_leg4_visual'
         ]
         use_color_geoms = []
         for g in env.sim.model.geom_names:
@@ -188,7 +187,7 @@ class GymImageDomainRandomizationWrapper(Wrapper):
             color_randomization_args['geom_names'] = use_color_geoms
             # randomize textures
             # color_randomization_args['texture_variations'] = ("rgb", "checker", "noise", "gradient")
-            color_randomization_args['texture_variations'] = ("noise",)
+            color_randomization_args['texture_variations'] = ("rgb",)
         if randomize_camera:
             camera_randomization_args['camera_names'] = env.camera_names
         self.randomize_color = randomize_color
