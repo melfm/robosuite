@@ -25,7 +25,7 @@ DEFAULT_COLOR_ARGS = {
     'local_material_interpolation': 0.3,
     'texture_variations': ['rgb', 'checker', 'noise',
                            'gradient'],  # all texture variation types
-    'randomize_skybox': True,  # by default, randomize skybox too
+    'randomize_skybox': False,  # by default, randomize skybox too
 }
 
 DEFAULT_CAMERA_ARGS = {
@@ -172,7 +172,8 @@ class GymImageDomainRandomizationWrapper(Wrapper):
         leave_out_color_geoms = [
             'cube', 'sphere', 'gripper', 'robot', 'milk', 'bread', 'cereal',
             'can', 'handle', 'nut', 'table_visual', 'floor', 'wall_left_visual','wall_right_visual',
-            'table_leg1_visual','table_leg2_visual','table_leg3_visual', 'table_leg4_visual'
+            'table_leg1_visual','table_leg2_visual','table_leg3_visual', 'table_leg4_visual',
+            'wall_rear_visual', 'wall_front_visual','wall_leftcorner_visual', 'wall_rightcorner_visual'
         ]
         use_color_geoms = []
         for g in env.sim.model.geom_names:
