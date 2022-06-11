@@ -170,8 +170,8 @@ class GymImageDomainRandomizationWrapper(Wrapper):
         # Don't change the color of objects of interest or of the robot
         # TODO this works with reach and lift and pickplace, will need to add objects in other envs
         leave_out_color_geoms = [
-            'sphere', 'gripper', 'robot', 'milk', 'bread', 'cereal',
-            'can', 'handle', 'nut', 'floor', 'wall_left_visual','wall_right_visual',
+            'cube', 'sphere', 'gripper', 'robot', 'milk', 'bread', 'cereal',
+            'can', 'handle', 'nut', 'table_visual', 'floor', 'wall_left_visual','wall_right_visual',
             'table_leg1_visual','table_leg2_visual','table_leg3_visual', 'table_leg4_visual'
         ]
         use_color_geoms = []
@@ -187,7 +187,7 @@ class GymImageDomainRandomizationWrapper(Wrapper):
             color_randomization_args['geom_names'] = use_color_geoms
             # randomize textures
             # color_randomization_args['texture_variations'] = ("rgb", "checker", "noise", "gradient")
-            color_randomization_args['texture_variations'] = ("rgb",)
+            color_randomization_args['texture_variations'] = ("noise",)
         if randomize_camera:
             camera_randomization_args['camera_names'] = env.camera_names
         self.randomize_color = randomize_color
