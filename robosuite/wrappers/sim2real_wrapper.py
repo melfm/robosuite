@@ -185,7 +185,8 @@ class JacoSim2RealWrapper(Wrapper):
         self._real_frames = deque([], maxlen=self._k)
         # whether to use real robot observations or not
         # typicall I use sim_obs for debugging purposes.
-        self.use_real_pix_obs = True
+        self.use_real_pix_obs = False
+        self.render_real_pix =  False
 
         self.frame_height = self.sim_env.camera_heights[0]
         self.frame_width = self.sim_env.camera_widths[0]
@@ -292,6 +293,9 @@ class JacoSim2RealWrapper(Wrapper):
             obs_pix_real = self.robot_client.render()
             obs_pix_real_train = self.prepare_for_training(obs_pix_real)
 
+        if self.render_real_pix:
+            # TODO: Dont render twice
+            obs_pix_real = self.robot_client.render()
             obs_pix_real_render = self.prepare_for_rendering(obs_pix_real)
             self.real_states["image_frame"] = obs_pix_real_render
 
@@ -339,7 +343,13 @@ class JacoSim2RealWrapper(Wrapper):
         action_output_transform = (self.output_max + self.output_min) / 2.0
         action_input_transform = (self.input_max + self.input_min) / 2.0
         action = np.clip(input_action, self.input_min, self.input_max)
+
+        # Mel: Sometimes action_scale is too small on the real robot, re-adjust
+        # action_scale = 0.009
+        print('Action scale ', action_scale)
         action = (action - action_input_transform) * action_scale + action_output_transform
+        # Mel: Currently finger actions are getting scaled too much. For now use the raw
+        action[-1] = input_action[-1]
 
         sim_ret = sim_all[0]
         reward = sim_all[1]
@@ -383,6 +393,8 @@ class JacoSim2RealWrapper(Wrapper):
             obs_pix_real = self.robot_client.render()
             obs_pix_real_train = self.prepare_for_training(obs_pix_real)
 
+        if self.render_real_pix:
+            obs_pix_real = self.robot_client.render()
             obs_pix_real_render = self.prepare_for_rendering(obs_pix_real)
             self.real_states["image_frame"] = obs_pix_real_render
 
