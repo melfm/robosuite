@@ -185,8 +185,8 @@ class JacoSim2RealWrapper(Wrapper):
         self._real_frames = deque([], maxlen=self._k)
         # whether to use real robot observations or not
         # typicall I use sim_obs for debugging purposes.
-        self.use_real_pix_obs = False
-        self.render_real_pix =  False
+        self.use_real_pix_obs = True
+        self.render_real_pix =  True
 
         self.frame_height = self.sim_env.camera_heights[0]
         self.frame_width = self.sim_env.camera_widths[0]
@@ -345,7 +345,7 @@ class JacoSim2RealWrapper(Wrapper):
         action = np.clip(input_action, self.input_min, self.input_max)
 
         # Mel: Sometimes action_scale is too small on the real robot, re-adjust
-        # action_scale = 0.009
+        # action_scale = 0.02
         print('Action scale ', action_scale)
         action = (action - action_input_transform) * action_scale + action_output_transform
         # Mel: Currently finger actions are getting scaled too much. For now use the raw
