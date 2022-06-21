@@ -44,6 +44,8 @@ def run_test():
     else:
         raise ValueError('Controller not supported.')
 
+
+    print('Tuning :', controller_config)
     result_dir = 'controller_tuning_res'
     if not os.path.exists(result_dir):
         os.makedirs(result_dir)
