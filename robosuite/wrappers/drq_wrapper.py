@@ -100,6 +100,7 @@ class ExtendedTimeStep(NamedTuple):
     observation: Any
     state_observation: Any
     action: Any
+    done: Any
 
     def first(self):
         return self.step_type == StepType.FIRST
@@ -373,7 +374,8 @@ class GymImageDomainRandomizationWrapper(Wrapper):
                                 reward=0.0,
                                 observation=obs,
                                 state_observation=state_observation,
-                                action=action)
+                                action=action,
+                                done=int(False))
 
     def _get_stack_obs(self):
         assert len(self._frames) == self._k
@@ -422,7 +424,8 @@ class GymImageDomainRandomizationWrapper(Wrapper):
                                 reward=reward,
                                 observation=obs,
                                 state_observation=state_observation,
-                                action=action)
+                                action=action,
+                                done=int(done))
 
     def randomize_domain(self):
         """
