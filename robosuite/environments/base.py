@@ -9,9 +9,10 @@ from robosuite.renderers.base import load_renderer_config
 from robosuite.renderers.mujoco.mujoco_py_renderer import MujocoPyRenderer
 from robosuite.utils import SimulationError, XMLError
 
-REGISTERED_ENVS = {}
 from mujoco_py import GlfwContext
 GlfwContext(offscreen=True)
+
+REGISTERED_ENVS = {}
 
 def register_env(target_class):
     REGISTERED_ENVS[target_class.__name__] = target_class
