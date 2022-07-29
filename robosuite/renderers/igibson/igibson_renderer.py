@@ -39,6 +39,9 @@ try:
 except ImportError:
     HAS_TORCH = False
 
+# Mel: disable INFO msgs
+import logging, sys
+logging.disable(sys.maxsize)
 
 AVAILABLE_MODALITIES = {"rgb", "seg", "normal", "3d"}
 AVAILABLE_MODES = {"gui", "headless"}

@@ -156,7 +156,8 @@ class GymImageDomainRandomizationWrapper(Wrapper):
     ):
         super().__init__(env)
 
-        assert env.use_camera_obs == True
+        # Disable for iGibson
+        # assert env.use_camera_obs == True
         self._k = frame_stack
         self._frames = deque([], maxlen=self._k)
         self.seed_value = seed
