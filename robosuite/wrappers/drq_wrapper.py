@@ -240,13 +240,21 @@ class GymImageDomainRandomizationWrapper(Wrapper):
 
         self.save_default_domain()
         self.keys = [f"{cam_name}_image" for cam_name in self.env.camera_names]
+        # TODO: Set from config
+        self.other_modality = False
+        if self.other_modality:
+            self.keys += [f"{cam_name}_depth" for cam_name in self.env.camera_names]
 
         # Gym specific attributes
         self.env.spec = None
         self.metadata = None
 
         # set up observation and action spaces
-        self.obs_dim = self.obs_shape = (3*self._k, self.env.camera_heights[0], self.env.camera_widths[0])
+        img_channels = 3
+        if self.other_modality:
+            img_channels = 4
+
+        self.obs_dim = self.obs_shape = (img_channels*self._k, self.env.camera_heights[0], self.env.camera_widths[0])
         high = 255 * np.ones(self.obs_dim, dtype=np.uint8)
         low = np.zeros(self.obs_dim, dtype=np.uint8)
         self.observation_space = spaces.Box(low=low, high=high)
@@ -294,14 +302,11 @@ class GymImageDomainRandomizationWrapper(Wrapper):
             except:
                 TypeError("Seed must be an integer type!")
 
-    def _reshape_store_frame(self, pixel_frame, output_file='test_frame'):
+    def _store_frame(self, pixel_frame, output_file='test_frame'):
         """ For testing the rendered pixels.
             pixel_frame : (3, n, n)
         """
         from PIL import Image
-
-        pixel_frame = pixel_frame.reshape(pixel_frame.shape[1],
-                                          pixel_frame.shape[2], 3)
         output_name = output_file + '.png'
         im = Image.fromarray(pixel_frame)
         im.save(output_name)
@@ -321,14 +326,18 @@ class GymImageDomainRandomizationWrapper(Wrapper):
                 if verbose:
                     print("adding key: {}".format(key))
                 obs_pix = obs_dict[key][::-1]
-                obs_pix = obs_pix.reshape(3, obs_pix.shape[0],
-                                          obs_pix.shape[1])
                 # For debugging
-                # self._reshape_store_frame(obs_pix,
-                #                           'processed_from_get_image_obs.png')
+                # name = key + '_sample'
+                # self._store_frame(obs_pix, name)
+                # import pdb;pdb.set_trace()
+                if key == 'frontview_depth':
+                    obs_pix = np.expand_dims(obs_pix, axis=0)
+                else:
+                    obs_pix = obs_pix.reshape(3, obs_pix.shape[0],
+                        obs_pix.shape[1])
                 ob_lst.append(np.array(obs_pix))
         # concatenate over channels
-        return np.concatenate(ob_lst, 2)
+        return np.concatenate(ob_lst, axis=0)
 
     def reset(self):
         """
@@ -381,10 +390,6 @@ class GymImageDomainRandomizationWrapper(Wrapper):
     def _get_stack_obs(self):
         assert len(self._frames) == self._k
         concat_frames = np.concatenate(list(self._frames), axis=0)
-        # For debugging purposes to make sure frames are aligned correctly
-        # Grab the first frame
-        # obs_pix = concat_frames[0:3, :, :]
-        # self._reshape_store_frame(obs_pix, 'processed_from_get_stack_obs.png')
         return concat_frames
 
     def step(self, action):
