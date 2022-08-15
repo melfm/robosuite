@@ -153,11 +153,13 @@ class GymImageDomainRandomizationWrapper(Wrapper):
         randomize_every_n_steps=0,
         frame_stack=3,
         discount=.99,
+        ig_renderer=False,
+        multi_modality=False,
     ):
         super().__init__(env)
 
-        # Disable for iGibson
-        # assert env.use_camera_obs == True
+        if not ig_renderer:
+            assert env.use_camera_obs == True
         self._k = frame_stack
         self._frames = deque([], maxlen=self._k)
         self.seed_value = seed
@@ -203,6 +205,7 @@ class GymImageDomainRandomizationWrapper(Wrapper):
         self.randomize_on_reset = randomize_on_reset
         self.randomize_on_init = randomize_on_init
         self.randomize_every_n_steps = randomize_every_n_steps
+        self.multi_modality = multi_modality
 
         self.step_counter = 0
 
@@ -240,9 +243,8 @@ class GymImageDomainRandomizationWrapper(Wrapper):
 
         self.save_default_domain()
         self.keys = [f"{cam_name}_image" for cam_name in self.env.camera_names]
-        # TODO: Set from config
-        self.other_modality = False
-        if self.other_modality:
+
+        if self.multi_modality:
             self.keys += [f"{cam_name}_normal" for cam_name in self.env.camera_names]
             self.keys += [f"{cam_name}_depth" for cam_name in self.env.camera_names]
 
@@ -252,7 +254,7 @@ class GymImageDomainRandomizationWrapper(Wrapper):
 
         # set up observation and action spaces
         img_channels = 3
-        if self.other_modality:
+        if self.multi_modality:
             img_channels *= 2
             img_channels += 1
 
@@ -341,8 +343,8 @@ class GymImageDomainRandomizationWrapper(Wrapper):
                     # Normalize
                     obs_pix = self.normalize_depth(obs_pix)
                 # For debugging
-                # name = key + '_sample'
-                # self._store_frame(obs_pix, name)
+                name = key + '_sample'
+                self._store_frame(obs_pix, name)
                 if key == 'frontview_depth':
                     obs_pix = np.expand_dims(obs_pix, axis=0)
                 else:
