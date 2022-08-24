@@ -97,7 +97,8 @@ class ExtendedTimeStep(NamedTuple):
     step_type: Any
     reward: Any
     discount: Any
-    observation: Any
+    observation_rgb: Any
+    observation_depth: Any
     state_observation: Any
     action: Any
     done: Any
@@ -161,7 +162,8 @@ class GymImageDomainRandomizationWrapper(Wrapper):
         if not ig_renderer:
             assert env.use_camera_obs == True
         self._k = frame_stack
-        self._frames = deque([], maxlen=self._k)
+        self._frames_rgb = deque([], maxlen=self._k)
+        self._frames_depth = deque([], maxlen=self._k)
         self.seed_value = seed
         self.discount = discount
         if seed is not None:
@@ -245,7 +247,7 @@ class GymImageDomainRandomizationWrapper(Wrapper):
         self.keys = [f"{cam_name}_image" for cam_name in self.env.camera_names]
 
         if self.multi_modality:
-            self.keys += [f"{cam_name}_normal" for cam_name in self.env.camera_names]
+            # self.keys += [f"{cam_name}_normal" for cam_name in self.env.camera_names]
             self.keys += [f"{cam_name}_depth" for cam_name in self.env.camera_names]
 
         # Gym specific attributes
@@ -254,9 +256,9 @@ class GymImageDomainRandomizationWrapper(Wrapper):
 
         # set up observation and action spaces
         img_channels = 3
-        if self.multi_modality:
-            img_channels *= 2
-            img_channels += 1
+        # if self.multi_modality:
+        #     img_channels *= 2
+        #     img_channels += 1
 
         self.obs_dim = self.obs_shape = (img_channels*self._k, self.env.camera_heights[0], self.env.camera_widths[0])
         high = 255 * np.ones(self.obs_dim, dtype=np.uint8)
@@ -331,7 +333,8 @@ class GymImageDomainRandomizationWrapper(Wrapper):
             obs_dict (OrderedDict): ordered dictionary of observations
             verbose (bool): Whether to print out to console as observation keys are processed
         Returns:
-            np.array: image observations into an array combined across channels
+            obs_pix: (3, w, h) image observations
+            obs_depth: (1, w, h) image observations
         """
         ob_lst = []
         for key in self.keys:
@@ -341,18 +344,20 @@ class GymImageDomainRandomizationWrapper(Wrapper):
                 obs_pix = obs_dict[key][::-1]
                 if key == 'frontview_depth':
                     # Normalize
-                    obs_pix = self.normalize_depth(obs_pix)
-                # For debugging
-                name = key + '_sample'
-                self._store_frame(obs_pix, name)
-                if key == 'frontview_depth':
-                    obs_pix = np.expand_dims(obs_pix, axis=0)
-                else:
+                    obs_depth = self.normalize_depth(obs_pix)
+                    # For debugging
+                    name = key + '_sample'
+                    self._store_frame(obs_depth, name)
+                    obs_depth = np.expand_dims(obs_depth, axis=0)
+
+                elif key == 'frontview_image':
+                    name = key + '_sample'
+                    self._store_frame(obs_pix, name)
                     obs_pix = obs_pix.reshape(3, obs_pix.shape[0],
                         obs_pix.shape[1])
-                ob_lst.append(np.array(obs_pix))
-        # concatenate over channels
-        return np.concatenate(ob_lst, axis=0)
+                    ob_lst.append(np.array(obs_pix))
+
+        return np.concatenate(ob_lst, 2), obs_depth
 
     def reset(self):
         """
@@ -381,10 +386,12 @@ class GymImageDomainRandomizationWrapper(Wrapper):
             self.randomize_domain()
             ret = self.env._get_observations()
 
-        img = self._get_image_obs(ret)
+        img_rgb, img_depth = self._get_image_obs(ret)
         for _ in range(self._k):
-            self._frames.append(img)
-        obs = self._get_stack_obs()
+            self._frames_rgb.append(img_rgb)
+            self._frames_depth.append(img_depth)
+
+        obs_rgb, obs_depth = self._get_stack_obs()
         action = np.zeros_like(self.action_spec[0]).astype(np.float32)
 
         # Proprioceptive obs
@@ -392,20 +399,26 @@ class GymImageDomainRandomizationWrapper(Wrapper):
         if self.use_proprio_obs:
             proprio = ret['robot0_proprio-state']
             object = ret['object-state']
-            state_observation = np.append(object, proprio)
+            state_observation = np.append(object, proprio)                    
 
         return ExtendedTimeStep(step_type=dm_env.StepType.FIRST,
                                 discount=self.discount,
                                 reward=0.0,
-                                observation=obs,
+                                observation_rgb=obs_rgb,
+                                observation_depth=obs_depth,
                                 state_observation=state_observation,
                                 action=action,
                                 done=int(False))
 
     def _get_stack_obs(self):
-        assert len(self._frames) == self._k
-        concat_frames = np.concatenate(list(self._frames), axis=0)
-        return concat_frames
+        assert len(self._frames_rgb) == self._k
+        concat_frames_depth = None
+        if self.multi_modality:
+            assert len(self._frames_depth) == self._k
+            concat_frames_depth = np.concatenate(list(self._frames_depth), axis=0)
+
+        concat_frames_rgb = np.concatenate(list(self._frames_rgb), axis=0)
+        return concat_frames_rgb, concat_frames_depth
 
     def step(self, action):
         """
@@ -426,8 +439,13 @@ class GymImageDomainRandomizationWrapper(Wrapper):
         self.step_counter += 1
 
         ob_dict, reward, done, info = self.env.step(action)
-        self._frames.append(self._get_image_obs(ob_dict))
-        obs = self._get_stack_obs()
+
+        img_rgb, img_depth = self._get_image_obs(ob_dict)
+
+        self._frames_rgb.append(img_rgb)
+        self._frames_depth.append(img_depth)
+
+        obs_rgb, obs_depth = self._get_stack_obs()
 
         # Proprioceptive obs
         state_observation = None
@@ -443,7 +461,8 @@ class GymImageDomainRandomizationWrapper(Wrapper):
         return ExtendedTimeStep(step_type=step_type,
                                 discount=self.discount,
                                 reward=reward,
-                                observation=obs,
+                                observation_rgb=obs_rgb,
+                                observation_depth=obs_depth,
                                 state_observation=state_observation,
                                 action=action,
                                 done=int(done))
