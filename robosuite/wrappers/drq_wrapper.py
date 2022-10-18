@@ -162,8 +162,11 @@ class GymImageDomainRandomizationWrapper(Wrapper):
         if not ig_renderer:
             assert env.use_camera_obs == True
         self._k = frame_stack
+        self.multi_modality = multi_modality
+
         self._frames_rgb = deque([], maxlen=self._k)
-        self._frames_depth = deque([], maxlen=self._k)
+        if self.multi_modality:
+            self._frames_depth = deque([], maxlen=self._k)
         self.seed_value = seed
         self.discount = discount
         if seed is not None:
@@ -207,7 +210,6 @@ class GymImageDomainRandomizationWrapper(Wrapper):
         self.randomize_on_reset = randomize_on_reset
         self.randomize_on_init = randomize_on_init
         self.randomize_every_n_steps = randomize_every_n_steps
-        self.multi_modality = multi_modality
 
         self.step_counter = 0
 
@@ -347,17 +349,20 @@ class GymImageDomainRandomizationWrapper(Wrapper):
                     obs_depth = self.normalize_depth(obs_pix)
                     # For debugging
                     name = key + '_sample'
-                    self._store_frame(obs_depth, name)
+                    # self._store_frame(obs_depth, name)
                     obs_depth = np.expand_dims(obs_depth, axis=0)
 
                 elif key == 'frontview_image':
                     name = key + '_sample'
-                    self._store_frame(obs_pix, name)
+                    # self._store_frame(obs_pix, name)
                     obs_pix = obs_pix.reshape(3, obs_pix.shape[0],
                         obs_pix.shape[1])
                     ob_lst.append(np.array(obs_pix))
 
-        return np.concatenate(ob_lst, 2), obs_depth
+        # Why is this concat needed here?
+        if self.multi_modality:
+            return np.concatenate(ob_lst, 2), obs_depth
+        else: return np.concatenate(ob_lst, 2)
 
     def reset(self):
         """
@@ -386,10 +391,14 @@ class GymImageDomainRandomizationWrapper(Wrapper):
             self.randomize_domain()
             ret = self.env._get_observations()
 
-        img_rgb, img_depth = self._get_image_obs(ret)
+        if self.multi_modality:
+            img_rgb, img_depth = self._get_image_obs(ret)
+        else:
+            img_rgb = self._get_image_obs(ret)
         for _ in range(self._k):
             self._frames_rgb.append(img_rgb)
-            self._frames_depth.append(img_depth)
+            if self.multi_modality:
+                self._frames_depth.append(img_depth)
 
         obs_rgb, obs_depth = self._get_stack_obs()
         action = np.zeros_like(self.action_spec[0]).astype(np.float32)
@@ -440,10 +449,14 @@ class GymImageDomainRandomizationWrapper(Wrapper):
 
         ob_dict, reward, done, info = self.env.step(action)
 
-        img_rgb, img_depth = self._get_image_obs(ob_dict)
+        if self.multi_modality:
+            img_rgb, img_depth = self._get_image_obs(ob_dict)
+        else:
+            img_rgb = self._get_image_obs(ob_dict)
 
         self._frames_rgb.append(img_rgb)
-        self._frames_depth.append(img_depth)
+        if self.multi_modality:
+            self._frames_depth.append(img_depth)
 
         obs_rgb, obs_depth = self._get_stack_obs()
 
