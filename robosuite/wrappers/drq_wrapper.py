@@ -257,7 +257,7 @@ class GymImageDomainRandomizationWrapper(Wrapper):
         self.metadata = None
 
         # set up observation and action spaces
-        img_channels = 3
+        img_channels = 3 * self.num_cameras
         # if self.multi_modality:
         #     img_channels *= 2
         #     img_channels += 1
@@ -352,9 +352,10 @@ class GymImageDomainRandomizationWrapper(Wrapper):
                     # self._store_frame(obs_depth, name)
                     obs_depth = np.expand_dims(obs_depth, axis=0)
 
-                elif key == 'frontview_image':
+                else:
+                    # For any other RGB views
                     name = key + '_sample'
-                    # self._store_frame(obs_pix, name)
+                    self._store_frame(obs_pix, name)
                     obs_pix = obs_pix.reshape(3, obs_pix.shape[0],
                         obs_pix.shape[1])
                     ob_lst.append(np.array(obs_pix))
@@ -362,7 +363,12 @@ class GymImageDomainRandomizationWrapper(Wrapper):
         # Why is this concat needed here?
         if self.multi_modality:
             return np.concatenate(ob_lst, 2), obs_depth
-        else: return np.concatenate(ob_lst, 2)
+        else:
+            if self.num_cameras == 1:
+                return np.concatenate(ob_lst, 2)
+            else:
+                # For multi-view, concatenate along channels.
+                return np.concatenate(ob_lst, 0)
 
     def reset(self):
         """

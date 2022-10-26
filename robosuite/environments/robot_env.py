@@ -168,9 +168,7 @@ class RobotEnv(MujocoEnv):
 
         # Camera / Rendering Settings
         self.has_offscreen_renderer = has_offscreen_renderer
-        self.camera_names = (
-            list(camera_names) if type(camera_names) is list or type(camera_names) is tuple else [camera_names]
-        )
+        self.camera_names = [camera_names] if type(camera_names) is str else camera_names
         self.num_cameras = len(self.camera_names)
 
         self.camera_heights = self._input2list(camera_heights, self.num_cameras)
