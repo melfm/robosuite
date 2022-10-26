@@ -348,14 +348,14 @@ class GymImageDomainRandomizationWrapper(Wrapper):
                     # Normalize
                     obs_depth = self.normalize_depth(obs_pix)
                     # For debugging
-                    name = key + '_sample'
+                    # name = key + '_sample'
                     # self._store_frame(obs_depth, name)
                     obs_depth = np.expand_dims(obs_depth, axis=0)
 
                 else:
                     # For any other RGB views
-                    name = key + '_sample'
-                    self._store_frame(obs_pix, name)
+                    # name = key + '_sample'
+                    # self._store_frame(obs_pix, name)
                     obs_pix = obs_pix.reshape(3, obs_pix.shape[0],
                         obs_pix.shape[1])
                     ob_lst.append(np.array(obs_pix))
