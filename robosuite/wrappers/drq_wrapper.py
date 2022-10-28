@@ -156,6 +156,7 @@ class GymImageDomainRandomizationWrapper(Wrapper):
         discount=.99,
         ig_renderer=False,
         multi_modality=False,
+        pretrained_encoder=False
     ):
         super().__init__(env)
 
@@ -163,6 +164,7 @@ class GymImageDomainRandomizationWrapper(Wrapper):
             assert env.use_camera_obs == True
         self._k = frame_stack
         self.multi_modality = multi_modality
+        self.pretrained_encoder = pretrained_encoder
 
         self._frames_rgb = deque([], maxlen=self._k)
         if self.multi_modality:
@@ -432,7 +434,12 @@ class GymImageDomainRandomizationWrapper(Wrapper):
             assert len(self._frames_depth) == self._k
             concat_frames_depth = np.concatenate(list(self._frames_depth), axis=0)
 
-        concat_frames_rgb = np.concatenate(list(self._frames_rgb), axis=0)
+        if self.pretrained_encoder:
+            # Resnet model expects single frame input - so append along width
+            concat_frames_rgb = np.concatenate(list(self._frames_rgb), axis=-1)
+        else:
+            concat_frames_rgb = np.concatenate(list(self._frames_rgb), axis=0)
+
         return concat_frames_rgb, concat_frames_depth
 
     def step(self, action):
